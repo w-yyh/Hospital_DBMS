@@ -25,7 +25,7 @@ hospital_management/
 
 ## 安装和配置
 1. 安装依赖：
-    `pip install flask flask-mysqldb PyJWT`
+    `pip install -r requirements.txt`
 2. 初始化数据库：
     `python database/db_initializer.py`
     请按提示输入MySQL配置信息。
