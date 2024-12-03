@@ -1,6 +1,12 @@
 # 医院管理系统后端 API
 这是一个基于 Flask 的医院管理系统后端，提供了完整的用户认证和数据管理功能。
 
+## UI部分
+以下命令运行ui，需要streamlit库
+`streamlit run ui.py`
+已经实现完整的登录流程，以及主界面切换。
+todo：目前没有连接Flask服务器，要额外实现传输和4种用户的查找显示。
+
 ## 项目结构
 ```
 hospital_management/
