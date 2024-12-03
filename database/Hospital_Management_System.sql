@@ -132,3 +132,8 @@ CREATE TABLE IF NOT EXISTS patient_doctor (
     updated_at TIMESTAMP,
     is_deleted BOOLEAN DEFAULT FALSE
 );
+
+-- 删除旧的测试数据
+DELETE FROM users WHERE username IN ('testadmin', 'testdoctor', 'testnurse', 'testpatient');
+
+-- 插入新的测试数据（不要在SQL文件中插入测试数据）

@@ -1,9 +1,12 @@
 from flask import Flask
 from flask_cors import CORS
 from app.utils.db import Database, db
+import os
 
 def create_app(config_name='development'):
-    app = Flask(__name__)
+    app = Flask(__name__,
+                template_folder=os.path.join(os.path.dirname(__file__), 'templates'),
+                static_folder=os.path.join(os.path.dirname(__file__), 'static'))
     
     # 启用 CORS
     CORS(app, resources={
@@ -35,10 +38,13 @@ def create_app(config_name='development'):
     
     # 注册蓝图
     from app.routes import admin, auth, doctor, nurse, patient
+    from app import front
+    
     app.register_blueprint(admin.bp)
     app.register_blueprint(auth.bp)
     app.register_blueprint(doctor.bp)
     app.register_blueprint(nurse.bp)
     app.register_blueprint(patient.bp)
+    app.register_blueprint(front.bp)
     
     return app 

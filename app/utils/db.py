@@ -2,6 +2,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask import current_app
 import psycopg
 from sqlalchemy import text
+from werkzeug.security import generate_password_hash
 
 db = SQLAlchemy()
 
@@ -18,18 +19,48 @@ class Database:
             f"{app.config.get('DB_NAME', 'hospital_management_system')}"
         )
         app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-            'client_encoding': 'utf8',
-            'connect_args': {
-                'client_encoding': 'UTF8'
-            }
-        }
         
         db.init_app(app)
         
         with app.app_context():
-            db.create_all()
+            # 读取并执行 SQL 文件
+            with open('database/Hospital_Management_System.sql', 'r', encoding='utf-8') as f:
+                sql = f.read()
+                db.session.execute(text(sql))
+                db.session.commit()
             
+            # 插入测试用户
+            test_users = [
+                ('testadmin', 'password123', 'admin', 'admin@test.com'),
+                ('testdoctor', 'password123', 'doctor', 'doctor@test.com'),
+                ('testnurse', 'password123', 'nurse', 'nurse@test.com'),
+                ('testpatient', 'password123', 'patient', 'patient@test.com')
+            ]
+            
+            for username, password, role, email in test_users:
+                # 检查用户是否已存在
+                existing_user = db.session.execute(
+                    text("SELECT id FROM users WHERE username = :username"),
+                    {'username': username}
+                ).fetchone()
+                
+                if not existing_user:
+                    # 生成新的密码哈希
+                    password_hash = generate_password_hash(password)
+                    
+                    # 插入新用户
+                    db.session.execute(text("""
+                        INSERT INTO users (username, password_hash, role, email)
+                        VALUES (:username, :password_hash, :role, :email)
+                    """), {
+                        'username': username,
+                        'password_hash': password_hash,
+                        'role': role,
+                        'email': email
+                    })
+            
+            db.session.commit()
+        
         return cls
 
     @classmethod

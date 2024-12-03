@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>医院管理系统</title>
+    <meta charset="utf-8">
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.1/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .card {
+            margin-bottom: 20px;
+        }
+        .nav-link {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">医院管理系统</a>
+            <div class="collapse navbar-collapse">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" onclick="showSection('dashboard')">首页</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" onclick="showSection('doctors')">医生管理</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" onclick="showSection('patients')">患者管理</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" onclick="showSection('nurses')">护士管理</a>
+                    </li>
+                </ul>
+                <div class="d-flex">
+                    <button class="btn btn-light" onclick="logout()">退出登录</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- 登录表单 -->
+        <div id="loginSection" class="card">
+            <div class="card-body">
+                <h5 class="card-title">用户登录</h5>
+                <form id="loginForm">
+                    <div class="mb-3">
+                        <label class="form-label">用户名</label>
+                        <input type="text" class="form-control" id="username" value="testdoctor">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">密码</label>
+                        <input type="password" class="form-control" id="password" value="password123">
+                    </div>
+                    <button type="submit" class="btn btn-primary">登录</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- 仪表盘 -->
+        <div id="dashboardSection" style="display: none;">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">医生数量</h5>
+                            <p class="card-text" id="doctorCount">加载中...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">患者数量</h5>
+                            <p class="card-text" id="patientCount">加载中...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">护士数量</h5>
+                            <p class="card-text" id="nurseCount">加载中...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">科室数量</h5>
+                            <p class="card-text" id="departmentCount">加载中...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.1/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let token = localStorage.getItem('token');
+        
+        // 检查登录状态
+        function checkLogin() {
+            if (token) {
+                document.getElementById('loginSection').style.display = 'none';
+                document.getElementById('dashboardSection').style.display = 'block';
+                loadStats();
+            } else {
+                document.getElementById('loginSection').style.display = 'block';
+                document.getElementById('dashboardSection').style.display = 'none';
+            }
+        }
+
+        // 登录
+        document.getElementById('loginForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                if (data.token) {
+                    token = data.token;
+                    localStorage.setItem('token', token);
+                    checkLogin();
+                } else {
+                    alert('登录失败：' + data.error);
+                }
+            } catch (error) {
+                alert('登录失败：' + error.message);
+            }
+        };
+
+        // 加载统计数据
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/stats', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await response.json();
+                document.getElementById('doctorCount').textContent = data.doctors;
+                document.getElementById('patientCount').textContent = data.patients;
+                document.getElementById('nurseCount').textContent = data.nurses;
+                document.getElementById('departmentCount').textContent = data.departments;
+            } catch (error) {
+                console.error('加载统计数据失败：', error);
+            }
+        }
+
+        // 退出登录
+        function logout() {
+            localStorage.removeItem('token');
+            token = null;
+            checkLogin();
+        }
+
+        // 切换页面
+        function showSection(section) {
+            // TODO: 实现页面切换逻辑
+        }
+
+        // 初始化
+        checkLogin();
+    </script>
+</body>
+</html> 

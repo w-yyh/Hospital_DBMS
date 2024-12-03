@@ -75,17 +75,30 @@ def login():
                 role
             FROM users 
             WHERE username = :username
+            AND is_deleted = FALSE
         """, {'username': data['username']})
         
         if not user:
             return jsonify({'error': '用户不存在'}), 404
             
-        # 验证密码
-        if not check_password_hash(user['password_hash'], data['password']):
-            return jsonify({'error': '密码错误'}), 401
+        try:
+            # 验证密码
+            if not check_password_hash(user['password_hash'], data['password']):
+                return jsonify({'error': '密码错误'}), 401
+        except ValueError as e:
+            print(f"Password hash error: {str(e)}")
+            print(f"Stored hash: {user['password_hash']}")
+            return jsonify({'error': '密码验证失败'}), 500
             
         # 生成JWT令牌
         token = generate_token(user['user_id'], user['role'])
+        
+        # 更新最后登录时间
+        Database.execute("""
+            UPDATE users 
+            SET last_login = CURRENT_TIMESTAMP
+            WHERE id = :user_id
+        """, {'user_id': user['user_id']})
         
         return jsonify({
             'token': token,

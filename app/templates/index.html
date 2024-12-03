@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>医院管理系统</title>
+    <meta charset="utf-8">
+    <style>
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .response {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>医院管理系统 API 测试</h1>
+        
+        <div>
+            <h2>登录测试</h2>
+            <form id="loginForm">
+                <input type="text" id="username" placeholder="用户名" value="testdoctor"><br>
+                <input type="password" id="password" placeholder="密码" value="password123"><br>
+                <button type="submit">登录</button>
+            </form>
+            <div id="loginResponse" class="response"></div>
+        </div>
+
+        <div>
+            <h2>获取医生信息</h2>
+            <button onclick="getDoctorInfo()">获取信息</button>
+            <div id="doctorResponse" class="response"></div>
+        </div>
+    </div>
+
+    <script>
+        // 存储token
+        let token = '';
+
+        // 登录表单提交
+        document.getElementById('loginForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                document.getElementById('loginResponse').innerText = 
+                    JSON.stringify(data, null, 2);
+                
+                if (data.token) {
+                    token = data.token;
+                }
+            } catch (error) {
+                document.getElementById('loginResponse').innerText = 
+                    '错误: ' + error.message;
+            }
+        };
+
+        // 获取医生信息
+        async function getDoctorInfo() {
+            if (!token) {
+                document.getElementById('doctorResponse').innerText = 
+                    '请先登录获取token';
+                return;
+            }
+            
+            try {
+                const response = await fetch('/doctor/profile/1', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await response.json();
+                document.getElementById('doctorResponse').innerText = 
+                    JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('doctorResponse').innerText = 
+                    '错误: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html> 
