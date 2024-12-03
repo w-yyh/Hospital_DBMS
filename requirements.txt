@@ -2,10 +2,11 @@ Flask==3.0.0
 Flask-MySQLdb==2.0.0
 PyJWT==2.8.0
 mysql-connector-python==8.2.0
-mysqlclient==2.2.0
 Werkzeug==3.0.1
 pytest==7.4.3
 python-dotenv==1.0.0
 Flask-SQLAlchemy==3.1.1
 psycopg2-binary==2.9.9
-SQLAlchemy==2.0.23 
+SQLAlchemy==2.0.23
+Flask-CORS==4.0.0
+gunicorn==21.2.0 

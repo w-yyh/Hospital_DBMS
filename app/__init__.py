@@ -1,8 +1,18 @@
 from flask import Flask
+from flask_cors import CORS
 from app.utils.db import Database, db
 
 def create_app(config_name='development'):
     app = Flask(__name__)
+    
+    # 启用 CORS
+    CORS(app, resources={
+        r"/*": {
+            "origins": "*",  # 在生产环境中应该限制具体的域名
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"]
+        }
+    })
     
     # 添加 SECRET_KEY 配置
     app.config['SECRET_KEY'] = 'your-secret-key-here'
