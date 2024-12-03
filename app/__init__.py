@@ -1,24 +1,34 @@
 from flask import Flask
-from flask_mysqldb import MySQL
+from app.utils.db import Database, db
 
-# 首先创建mysql实例
-mysql = MySQL()
-
-def create_app():
+def create_app(config_name='development'):
     app = Flask(__name__)
     
-    # 配置数据库
-    app.config.from_object('config.Config')
+    # 添加 SECRET_KEY 配置
+    app.config['SECRET_KEY'] = 'your-secret-key-here'
     
-    # 初始化mysql并确保它被正确注册到app.extensions
-    mysql.init_app(app)
-    app.extensions['mysql'] = mysql
+    # 数据库配置
+    app.config.update(
+        DB_NAME='hospital_management_system',
+        DB_USER='postgres',
+        DB_PASSWORD='123456',
+        DB_HOST='localhost',
+        DB_PORT='5432'
+    )
     
-    # 导入并注册所有蓝图
-    from app.routes import auth, admin, doctor, patient
-    app.register_blueprint(auth.bp)
+    # 初始化数据库
+    Database.init_app(app)
+    
+    # 创建所有数据库表
+    with app.app_context():
+        db.create_all()
+    
+    # 注册蓝图
+    from app.routes import admin, auth, doctor, nurse, patient
     app.register_blueprint(admin.bp)
+    app.register_blueprint(auth.bp)
     app.register_blueprint(doctor.bp)
+    app.register_blueprint(nurse.bp)
     app.register_blueprint(patient.bp)
     
     return app 

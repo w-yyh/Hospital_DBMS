@@ -1,52 +1,88 @@
-from flask import current_app, jsonify
-from flask_mysqldb import MySQL
+from flask_sqlalchemy import SQLAlchemy
+from flask import current_app
+import psycopg
+from sqlalchemy import text
+
+db = SQLAlchemy()
 
 class Database:
-    @staticmethod
-    def get_mysql():
-        """获取MySQL连接"""
-        if 'mysql' not in current_app.extensions:
-            raise Exception("MySQL extension not initialized")
-        return current_app.extensions['mysql']
+    @classmethod
+    def init_app(cls, app):
+        """初始化数据库连接"""
+        app.config['SQLALCHEMY_DATABASE_URI'] = (
+            f"postgresql+psycopg://"
+            f"{app.config.get('DB_USER', 'postgres')}:"
+            f"{app.config.get('DB_PASSWORD', '123456')}@"
+            f"{app.config.get('DB_HOST', 'localhost')}:"
+            f"{app.config.get('DB_PORT', '5432')}/"
+            f"{app.config.get('DB_NAME', 'hospital_management_system')}"
+        )
+        app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'client_encoding': 'utf8',
+            'connect_args': {
+                'client_encoding': 'UTF8'
+            }
+        }
+        
+        db.init_app(app)
+        
+        with app.app_context():
+            db.create_all()
+            
+        return cls
 
-    @staticmethod
-    def execute_query(query, args=None):
-        mysql = Database.get_mysql()
-        cur = mysql.connection.cursor()
+    @classmethod
+    def execute(cls, query, params=None):
+        """执行SQL查询并返回最后一个插入行的ID"""
         try:
-            cur.execute(query, args or ())
-            mysql.connection.commit()
-            return cur
-        except Exception as e:
-            mysql.connection.rollback()
-            raise e
-        finally:
-            cur.close()
-
-    @staticmethod
-    def fetch_one(query, args=None):
-        mysql = Database.get_mysql()
-        cur = mysql.connection.cursor()
-        try:
-            cur.execute(query, args or ())
-            result = cur.fetchone()
-            if result:
-                # 将结果转换为字典
-                columns = [col[0] for col in cur.description]
-                return dict(zip(columns, result))
+            if isinstance(query, str):
+                query = text(query)
+            result = db.session.execute(query, params)
+            db.session.commit()
+            if result.returns_rows:
+                row = result.fetchone()
+                return row[0] if row else None
             return None
-        finally:
-            cur.close()
+        except Exception as e:
+            db.session.rollback()
+            raise
 
-    @staticmethod
-    def fetch_all(query, args=None):
-        mysql = Database.get_mysql()
-        cur = mysql.connection.cursor()
+    @classmethod
+    def fetch_one(cls, query, params=None):
+        """执行查询并返回单个结果"""
         try:
-            cur.execute(query, args or ())
-            results = cur.fetchall()
-            # 将结果转换为字典列表
-            columns = [col[0] for col in cur.description]
-            return [dict(zip(columns, row)) for row in results]
-        finally:
-            cur.close() 
+            if isinstance(query, str):
+                query = text(query)
+            result = db.session.execute(query, params)
+            row = result.fetchone()
+            if not row:
+                return None
+            return {key: value for key, value in zip(result.keys(), row)}
+        except Exception as e:
+            db.session.rollback()
+            raise
+
+    @classmethod
+    def fetch_all(cls, query, params=None):
+        """执行查询并返回所有结果"""
+        try:
+            if isinstance(query, str):
+                query = text(query)
+            result = db.session.execute(query, params)
+            return [{key: value for key, value in zip(result.keys(), row)} for row in result]
+        except Exception as e:
+            db.session.rollback()
+            raise
+
+    @classmethod
+    def execute_query(cls, query, params=None):
+        """执行查询但不返回结果"""
+        try:
+            if isinstance(query, str):
+                query = text(query)
+            db.session.execute(query, params)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            raise 
