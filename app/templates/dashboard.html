@@ -22,18 +22,49 @@
                     <li class="nav-item">
                         <a class="nav-link active" onclick="showSection('dashboard')">首页</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" onclick="showSection('doctors')">医生管理</a>
+                    <li class="nav-item admin-only" style="display: none;">
+                        <a class="nav-link" onclick="showSection('departments')">科室管理</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" onclick="showSection('patients')">患者管理</a>
+                    <li class="nav-item admin-only" style="display: none;">
+                        <a class="nav-link" onclick="showSection('wards')">病房管理</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" onclick="showSection('nurses')">护士管理</a>
+                    <li class="nav-item admin-only" style="display: none;">
+                        <a class="nav-link" onclick="showSection('staff')">人员管理</a>
+                    </li>
+                    
+                    <li class="nav-item doctor-only" style="display: none;">
+                        <a class="nav-link" onclick="showSection('myPatients')">我的患者</a>
+                    </li>
+                    <li class="nav-item doctor-only" style="display: none;">
+                        <a class="nav-link" onclick="showSection('treatments')">治疗记录</a>
+                    </li>
+                    
+                    <li class="nav-item nurse-only" style="display: none;">
+                        <a class="nav-link" onclick="showSection('nurseWards')">病房管理</a>
+                    </li>
+                    <li class="nav-item nurse-only" style="display: none;">
+                        <a class="nav-link" onclick="showSection('schedule')">排班信息</a>
+                    </li>
+                    
+                    <li class="nav-item patient-only" style="display: none;">
+                        <a class="nav-link" onclick="showSection('myDoctors')">我的医生</a>
+                    </li>
+                    <li class="nav-item patient-only" style="display: none;">
+                        <a class="nav-link" onclick="showSection('myTreatments')">治疗记录</a>
                     </li>
                 </ul>
                 <div class="d-flex">
-                    <button class="btn btn-light" onclick="logout()">退出登录</button>
+                    <span class="navbar-text me-3" id="userInfo">未登录</span>
+                    <div class="dropdown">
+                        <button class="btn btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            用户操作
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" onclick="showProfile()">个人信息</a></li>
+                            <li><a class="dropdown-item" data-bs-toggle="modal" data-bs-target="#changePasswordModal">修改密码</a></li>
+                            <li><a class="dropdown-item" onclick="logout()">退出登录</a></li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div>
@@ -95,85 +126,399 @@
                 </div>
             </div>
         </div>
+
+        <!-- 管理员功能区 -->
+        <div id="departmentsSection" class="admin-only" style="display: none;">
+            <h2>科室管理</h2>
+            <button class="btn btn-primary mb-3" onclick="showAddDepartmentModal()">添加科室</button>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>科室名称</th>
+                        <th>医生数量</th>
+                        <th>护士数量</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="departmentsList"></tbody>
+            </table>
+        </div>
+
+        <div id="wardsSection" class="admin-only" style="display: none;">
+            <h2>病房管理</h2>
+            <button class="btn btn-primary mb-3" onclick="showAddWardModal()">添加病房</button>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>房间号</th>
+                        <th>类型</th>
+                        <th>床位数</th>
+                        <th>空床数</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="wardsList"></tbody>
+            </table>
+        </div>
+
+        <!-- 医生功能区 -->
+        <div id="myPatientsSection" class="doctor-only" style="display: none;">
+            <h2>我的患者</h2>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>姓名</th>
+                        <th>性别</th>
+                        <th>年龄</th>
+                        <th>入院日期</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="myPatientsList"></tbody>
+            </table>
+        </div>
+
+        <!-- 护士功能区 -->
+        <div id="scheduleSection" class="nurse-only" style="display: none;">
+            <h2>排班信息</h2>
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5>当前排班</h5>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>病房</th>
+                                <th>班次</th>
+                                <th>开始时间</th>
+                                <th>结束时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="nurseScheduleTable"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 患者功能区 -->
+        <div id="myDoctorsSection" class="patient-only" style="display: none;">
+            <h2>我的医生</h2>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>医生姓名</th>
+                        <th>科室</th>
+                        <th>专长</th>
+                        <th>联系方式</th>
+                    </tr>
+                </thead>
+                <tbody id="myDoctorsList"></tbody>
+            </table>
+        </div>
+
+        <!-- 在 container 中添加修改密码的模态框 -->
+        <div class="modal fade" id="changePasswordModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">修改密码</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="changePasswordForm">
+                            <div class="mb-3">
+                                <label class="form-label">旧密码</label>
+                                <input type="password" class="form-control" id="oldPassword" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">新密码</label>
+                                <input type="password" class="form-control" id="newPassword" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">确认新密码</label>
+                                <input type="password" class="form-control" id="confirmPassword" required>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="button" class="btn btn-primary" onclick="changePassword()">确认修改</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.1/js/bootstrap.bundle.min.js"></script>
     <script>
         let token = localStorage.getItem('token');
-        
+        let currentUser = null;
+
+        // 登录后处理用户信息
+        async function handleLoginSuccess(data) {
+            token = data.token;
+            currentUser = data.user;
+            localStorage.setItem('token', token);
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            document.getElementById('userInfo').textContent = `${currentUser.name} (${currentUser.role})`;
+            checkLogin();
+        }
+
         // 检查登录状态
-        function checkLogin() {
+        async function checkLogin() {
             if (token) {
-                document.getElementById('loginSection').style.display = 'none';
-                document.getElementById('dashboardSection').style.display = 'block';
-                loadStats();
+                try {
+                    currentUser = JSON.parse(localStorage.getItem('currentUser'));
+                    document.getElementById('loginSection').style.display = 'none';
+                    document.getElementById('dashboardSection').style.display = 'block';
+                    document.getElementById('userInfo').textContent = `${currentUser.name} (${currentUser.role})`;
+                    toggleSectionsByRole(currentUser.role);
+                    loadStats();
+                } catch (error) {
+                    console.error('登录状态检查失败：', error);
+                    logout();
+                }
             } else {
                 document.getElementById('loginSection').style.display = 'block';
                 document.getElementById('dashboardSection').style.display = 'none';
+                hideAllSections();
             }
         }
 
-        // 登录
-        document.getElementById('loginForm').onsubmit = async (e) => {
-            e.preventDefault();
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
+        // 切换显示区域
+        function showSection(sectionId) {
+            const sections = [
+                'dashboard', 'departments', 'wards', 'staff',
+                'myPatients', 'treatments', 'nurseWards', 'schedule',
+                'myDoctors', 'myTreatments'
+            ];
             
-            try {
-                const response = await fetch('/auth/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ username, password })
-                });
-                
-                const data = await response.json();
-                if (data.token) {
-                    token = data.token;
-                    localStorage.setItem('token', token);
-                    checkLogin();
-                } else {
-                    alert('登录失败：' + data.error);
+            sections.forEach(section => {
+                const element = document.getElementById(section + 'Section');
+                if (element) {
+                    element.style.display = section === sectionId ? 'block' : 'none';
                 }
-            } catch (error) {
-                alert('登录失败：' + error.message);
-            }
-        };
+            });
 
-        // 加载统计数据
-        async function loadStats() {
-            try {
-                const response = await fetch('/api/stats', {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-                
-                const data = await response.json();
-                document.getElementById('doctorCount').textContent = data.doctors;
-                document.getElementById('patientCount').textContent = data.patients;
-                document.getElementById('nurseCount').textContent = data.nurses;
-                document.getElementById('departmentCount').textContent = data.departments;
-            } catch (error) {
-                console.error('加载统计数据失败：', error);
+            // 根据不同section加载相应数据
+            switch(sectionId) {
+                case 'departments':
+                    loadDepartments();
+                    break;
+                case 'wards':
+                    loadWards();
+                    break;
+                case 'myPatients':
+                    loadMyPatients();
+                    break;
+                case 'schedule':
+                    loadNurseSchedule();
+                    break;
+                case 'myDoctors':
+                    loadMyDoctors();
+                    break;
             }
+        }
+
+        // 加载科室列表
+        async function loadDepartments() {
+            try {
+                const response = await fetch('/api/departments', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const departments = await response.json();
+                const tbody = document.getElementById('departmentsList');
+                tbody.innerHTML = departments.map(dept => `
+                    <tr>
+                        <td>${dept.name}</td>
+                        <td>${dept.doctorCount}</td>
+                        <td>${dept.nurseCount}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="editDepartment(${dept.id})">编辑</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteDepartment(${dept.id})">删除</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('加载科室列表失败：', error);
+            }
+        }
+
+        // 加载病房列表
+        async function loadWards() {
+            try {
+                const response = await fetch('/api/wards', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const wards = await response.json();
+                const tbody = document.getElementById('wardsList');
+                tbody.innerHTML = wards.map(ward => `
+                    <tr>
+                        <td>${ward.roomNumber}</td>
+                        <td>${ward.type}</td>
+                        <td>${ward.totalBeds}</td>
+                        <td>${ward.availableBeds}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="editWard(${ward.id})">编辑</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteWard(${ward.id})">删除</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('加载病房列表失败：', error);
+            }
+        }
+
+        // 加载医生的患者列表
+        async function loadMyPatients() {
+            try {
+                const response = await fetch('/api/doctor/patients', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const patients = await response.json();
+                const tbody = document.getElementById('myPatientsList');
+                tbody.innerHTML = patients.map(patient => `
+                    <tr>
+                        <td>${patient.name}</td>
+                        <td>${patient.gender}</td>
+                        <td>${patient.age}</td>
+                        <td>${patient.admissionDate}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="viewPatientDetails(${patient.id})">查看详情</button>
+                            <button class="btn btn-sm btn-success" onclick="addTreatmentRecord(${patient.id})">添加治疗记录</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('加载患者列表失败：', error);
+            }
+        }
+
+        // 加载护士排班信息
+        async function loadNurseSchedule() {
+            try {
+                const response = await fetch('/api/nurse/schedule', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const schedules = await response.json();
+                const tbody = document.getElementById('nurseScheduleTable');
+                tbody.innerHTML = schedules.map(schedule => `
+                    <tr>
+                        <td>${schedule.wardNumber}</td>
+                        <td>${schedule.shift}</td>
+                        <td>${schedule.startTime}</td>
+                        <td>${schedule.endTime}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="viewScheduleDetails(${schedule.id})">查看详情</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('加载排班信息失败：', error);
+            }
+        }
+
+        // 加载患者的医生列表
+        async function loadMyDoctors() {
+            try {
+                const response = await fetch('/api/patient/doctors', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const doctors = await response.json();
+                const tbody = document.getElementById('myDoctorsList');
+                tbody.innerHTML = doctors.map(doctor => `
+                    <tr>
+                        <td>${doctor.name}</td>
+                        <td>${doctor.department}</td>
+                        <td>${doctor.specialty}</td>
+                        <td>${doctor.contact}</td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('加载医生列表失败：', error);
+            }
+        }
+
+        // 根据用户角色显示/隐藏功能区
+        function toggleSectionsByRole(role) {
+            const adminSections = document.querySelectorAll('.admin-only');
+            const doctorSections = document.querySelectorAll('.doctor-only');
+            const nurseSections = document.querySelectorAll('.nurse-only');
+            const patientSections = document.querySelectorAll('.patient-only');
+
+            hideAllSections();
+
+            switch(role) {
+                case 'admin':
+                    adminSections.forEach(section => section.style.display = '');
+                    break;
+                case 'doctor':
+                    doctorSections.forEach(section => section.style.display = '');
+                    break;
+                case 'nurse':
+                    nurseSections.forEach(section => section.style.display = '');
+                    break;
+                case 'patient':
+                    patientSections.forEach(section => section.style.display = '');
+                    break;
+            }
+        }
+
+        // 隐藏所有功能区
+        function hideAllSections() {
+            document.querySelectorAll('.admin-only, .doctor-only, .nurse-only, .patient-only')
+                .forEach(section => section.style.display = 'none');
         }
 
         // 退出登录
         function logout() {
             localStorage.removeItem('token');
+            localStorage.removeItem('currentUser');
             token = null;
+            currentUser = null;
+            document.getElementById('userInfo').textContent = '未登录';
             checkLogin();
-        }
-
-        // 切换页面
-        function showSection(section) {
-            // TODO: 实现页面切换逻辑
         }
 
         // 初始化
         checkLogin();
+
+        // 在 script 标签中添加修改密码的函数
+        async function changePassword() {
+            const oldPassword = document.getElementById('oldPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            if (newPassword !== confirmPassword) {
+                alert('两次输入的新密码不一致');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/auth/change-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        old_password: oldPassword,
+                        new_password: newPassword
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert('密码修改成功，请重新登录');
+                    logout();
+                } else {
+                    alert(data.error || '密码修改失败');
+                }
+            } catch (error) {
+                alert('密码修改失败：' + error.message);
+            }
+        }
     </script>
 </body>
 </html> 

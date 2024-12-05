@@ -23,27 +23,6 @@ def add_doctor(admin_id):
           data['specialization'], data['department_id'], data['email']))
     return jsonify({'message': 'Doctor added successfully'})
 
-@bp.route('/admin/test-db', methods=['GET'])
-def test_database():
-    try:
-        # 测试查询每个表
-        departments = Database.fetch_all("SELECT * FROM departments")
-        doctors = Database.fetch_all("SELECT * FROM doctors")
-        nurses = Database.fetch_all("SELECT * FROM nurses")
-        
-        return jsonify({
-            'status': 'success',
-            'data': {
-                'departments_count': len(departments),
-                'doctors_count': len(doctors),
-                'nurses_count': len(nurses)
-            }
-        })
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500 
 
 # 科室管理相关路由
 @bp.route('/admin/department/<int:doctor_id>/assign', methods=['PUT'])

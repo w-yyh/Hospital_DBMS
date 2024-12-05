@@ -1,4 +1,3 @@
--- 用户表
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
@@ -11,7 +10,6 @@ CREATE TABLE IF NOT EXISTS users (
     is_deleted BOOLEAN DEFAULT FALSE
 );
 
--- 科室表
 CREATE TABLE IF NOT EXISTS departments (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -21,7 +19,6 @@ CREATE TABLE IF NOT EXISTS departments (
     is_deleted BOOLEAN DEFAULT FALSE
 );
 
--- 病房表
 CREATE TABLE IF NOT EXISTS wards (
     id SERIAL PRIMARY KEY,
     room_number VARCHAR(20) UNIQUE NOT NULL,
@@ -32,7 +29,7 @@ CREATE TABLE IF NOT EXISTS wards (
     is_deleted BOOLEAN DEFAULT FALSE
 );
 
--- 医生表
+
 CREATE TABLE IF NOT EXISTS doctors (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id),
@@ -47,7 +44,7 @@ CREATE TABLE IF NOT EXISTS doctors (
     is_deleted BOOLEAN DEFAULT FALSE
 );
 
--- 护士表
+
 CREATE TABLE IF NOT EXISTS nurses (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id),
@@ -62,7 +59,7 @@ CREATE TABLE IF NOT EXISTS nurses (
     is_deleted BOOLEAN DEFAULT FALSE
 );
 
--- 患者表
+
 CREATE TABLE IF NOT EXISTS patients (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id),
@@ -77,7 +74,7 @@ CREATE TABLE IF NOT EXISTS patients (
     is_deleted BOOLEAN DEFAULT FALSE
 );
 
--- 护士病房分配表
+
 CREATE TABLE IF NOT EXISTS nurse_ward_assignments (
     id SERIAL PRIMARY KEY,
     nurse_id INTEGER REFERENCES nurses(id),
@@ -90,7 +87,7 @@ CREATE TABLE IF NOT EXISTS nurse_ward_assignments (
     is_deleted BOOLEAN DEFAULT FALSE
 );
 
--- 入院记录表
+
 CREATE TABLE IF NOT EXISTS admissions (
     id SERIAL PRIMARY KEY,
     patient_id INTEGER REFERENCES patients(id),
@@ -105,7 +102,6 @@ CREATE TABLE IF NOT EXISTS admissions (
     is_deleted BOOLEAN DEFAULT FALSE
 );
 
--- 治疗记录表
 CREATE TABLE IF NOT EXISTS treatments (
     id SERIAL PRIMARY KEY,
     patient_id INTEGER REFERENCES patients(id),
@@ -120,7 +116,7 @@ CREATE TABLE IF NOT EXISTS treatments (
     is_deleted BOOLEAN DEFAULT FALSE
 );
 
--- 医患关系表
+
 CREATE TABLE IF NOT EXISTS patient_doctor (
     id SERIAL PRIMARY KEY,
     patient_id INTEGER REFERENCES patients(id),
@@ -133,7 +129,7 @@ CREATE TABLE IF NOT EXISTS patient_doctor (
     is_deleted BOOLEAN DEFAULT FALSE
 );
 
--- 删除旧的测试数据
+
 DELETE FROM users WHERE username IN ('testadmin', 'testdoctor', 'testnurse', 'testpatient');
 
--- 插入新的测试数据（不要在SQL文件中插入测试数据）
+

@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
-from app.utils.db import Database
-from app.utils.auth import generate_token, admin_required
+from app.utils.db import Database, db
+from app.utils.auth import generate_token, admin_required, login_required
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import jwt
@@ -34,24 +34,102 @@ def register():
         if data['role'] not in valid_roles:
             return jsonify({'error': '无效的用户角色'}), 400
             
+        # 验证角色相关信息
+        role_info = None
+        if data['role'] == 'doctor':
+            if 'doctor_info' not in data:
+                return jsonify({'error': '缺少医生相关信息'}), 400
+            role_info = data['doctor_info']
+            required_info = ['name', 'birth_date', 'contact', 'department_id', 'specialization']
+        elif data['role'] == 'nurse':
+            if 'nurse_info' not in data:
+                return jsonify({'error': '缺少护士相关信息'}), 400
+            role_info = data['nurse_info']
+            required_info = ['name', 'birth_date', 'contact', 'department_id', 'qualification']
+        elif data['role'] == 'patient':
+            if 'patient_info' not in data:
+                return jsonify({'error': '缺少患者相关信息'}), 400
+            role_info = data['patient_info']
+            required_info = ['name', 'birth_date', 'gender', 'contact', 'address']
+            
+        if role_info and data['role'] != 'admin':
+            for field in required_info:
+                if field not in role_info:
+                    return jsonify({'error': f'缺少{data["role"]}信息: {field}'}), 400
+        
         # 创建用户记录
         password_hash = generate_password_hash(data['password'])
-        result = Database.execute("""
-            INSERT INTO users (username, password_hash, role, email)
-            VALUES (:username, :password_hash, :role, :email)
-            RETURNING id
-        """, {
-            'username': data['username'],
-            'password_hash': password_hash,
-            'role': data['role'],
-            'email': data['email']
-        })
         
-        return jsonify({
-            'message': '用户注册成功',
-            'user_id': result
-        }), 201
-        
+        # 使用事务
+        try:
+            # 创建用户
+            user_id = Database.execute("""
+                INSERT INTO users (username, password_hash, role, email)
+                VALUES (:username, :password_hash, :role, :email)
+                RETURNING id
+            """, {
+                'username': data['username'],
+                'password_hash': password_hash,
+                'role': data['role'],
+                'email': data['email']
+            })
+            
+            # 创建角色相关记录
+            role_id = None
+            if data['role'] == 'doctor':
+                role_id = Database.execute("""
+                    INSERT INTO doctors (
+                        user_id, name, birth_date, contact, 
+                        email, department_id, specialization
+                    ) VALUES (
+                        :user_id, :name, :birth_date, :contact,
+                        :email, :department_id, :specialization
+                    ) RETURNING id
+                """, {
+                    'user_id': user_id,
+                    **role_info,
+                    'email': data['email']
+                })
+            elif data['role'] == 'nurse':
+                role_id = Database.execute("""
+                    INSERT INTO nurses (
+                        user_id, name, birth_date, contact,
+                        email, department_id, qualification
+                    ) VALUES (
+                        :user_id, :name, :birth_date, :contact,
+                        :email, :department_id, :qualification
+                    ) RETURNING id
+                """, {
+                    'user_id': user_id,
+                    **role_info,
+                    'email': data['email']
+                })
+            elif data['role'] == 'patient':
+                role_id = Database.execute("""
+                    INSERT INTO patients (
+                        user_id, name, birth_date, gender,
+                        contact, address, medical_history
+                    ) VALUES (
+                        :user_id, :name, :birth_date, :gender,
+                        :contact, :address, :medical_history
+                    ) RETURNING id
+                """, {
+                    'user_id': user_id,
+                    **role_info,
+                    'medical_history': role_info.get('medical_history', '')
+                })
+            
+            return jsonify({
+                'message': '用户注册成功',
+                'user_id': user_id,
+                'role_id': role_id,
+                'role': data['role']
+            }), 201
+            
+        except Exception as e:
+            print(f"Database operation error: {str(e)}")
+            raise
+            
     except Exception as e:
         print(f"Register error: {str(e)}")
         import traceback
@@ -169,7 +247,7 @@ def reset_password():
             algorithms=['HS256']
         )
         
-        # 检查令牌是否有效
+        # 检查令牌��否有效
         user = Database.fetch_one("""
             SELECT user_id 
             FROM users 
@@ -203,37 +281,46 @@ def reset_password():
 
 # 修改密码
 @bp.route('/auth/change-password', methods=['POST'])
-def change_password():
+@login_required  # 需要登录才能修改密码
+def change_password(user_id):
     data = request.get_json()
-    if not all(k in data for k in ['user_id', 'current_password', 'new_password']):
-        return jsonify({'error': '请提供当前密码和新密码'}), 400
+    if not all(k in data for k in ['old_password', 'new_password']):
+        return jsonify({'error': '请提供旧密码和新密码'}), 400
         
     try:
-        # 验证用户
+        # 获取用户信息
         user = Database.fetch_one("""
-            SELECT user_id, password_hash 
+            SELECT id, password_hash
             FROM users 
-            WHERE user_id = %s AND is_deleted = FALSE
-        """, (data['user_id'],))
+            WHERE id = :user_id AND is_deleted = FALSE
+        """, {'user_id': user_id})
         
         if not user:
             return jsonify({'error': '用户不存在'}), 404
             
-        # 验证当前密码
-        if not check_password_hash(user['password_hash'], data['current_password']):
-            return jsonify({'error': '当前密码错误'}), 401
+        # 验证旧密码
+        if not check_password_hash(user['password_hash'], data['old_password']):
+            return jsonify({'error': '旧密码错误'}), 401
             
+        # 生成新密码的哈希值
+        new_password_hash = generate_password_hash(data['new_password'])
+        
         # 更新密码
-        password_hash = generate_password_hash(data['new_password'])
         Database.execute("""
             UPDATE users 
-            SET password_hash = %s, updated_at = NOW()
-            WHERE user_id = %s
-        """, (password_hash, user['user_id']))
+            SET password_hash = :password_hash,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = :user_id
+        """, {
+            'user_id': user_id,
+            'password_hash': new_password_hash
+        })
         
-        return jsonify({'message': '密码修改成功'})
+        return jsonify({'message': '密码修改成功'}), 200
+        
     except Exception as e:
-        return jsonify({'error': f'密码修改失败: {str(e)}'}), 500
+        print(f"Change password error: {str(e)}")
+        return jsonify({'error': f'修改���码失败: {str(e)}'}), 500
 
 # 权限管理接口
 @bp.route('/auth/roles', methods=['GET'])
@@ -268,9 +355,14 @@ def update_user_role(user_id, target_user_id):
         # 更新用户角色
         Database.execute("""
             UPDATE users 
-            SET role = %s, updated_at = NOW()
-            WHERE user_id = %s AND is_deleted = FALSE
-        """, (data['role'], target_user_id))
+            SET role = :role, 
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = :user_id 
+            AND is_deleted = FALSE
+        """, {
+            'role': data['role'],
+            'user_id': target_user_id
+        })
         
         return jsonify({'message': '用户角色更新成功'})
     except Exception as e:

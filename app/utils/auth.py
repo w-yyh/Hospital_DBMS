@@ -86,3 +86,14 @@ def generate_token(user_id, role):
         'exp': datetime.now(UTC) + timedelta(days=1)
     }
     return jwt.encode(payload, current_app.config['SECRET_KEY'], algorithm='HS256') 
+
+def login_required(f):
+    """登录验证装饰器"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        payload = verify_token()
+        if not payload:
+            return jsonify({'error': '未授权访问'}), 401
+            
+        return f(payload['user_id'], *args, **kwargs)
+    return decorated_function 

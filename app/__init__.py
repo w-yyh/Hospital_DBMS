@@ -38,13 +38,11 @@ def create_app(config_name='development'):
     
     # 注册蓝图
     from app.routes import admin, auth, doctor, nurse, patient
-    from app import front
     
     app.register_blueprint(admin.bp)
     app.register_blueprint(auth.bp)
     app.register_blueprint(doctor.bp)
     app.register_blueprint(nurse.bp)
     app.register_blueprint(patient.bp)
-    app.register_blueprint(front.bp)
     
     return app 
