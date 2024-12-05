@@ -2,7 +2,10 @@ from flask import Blueprint, request, jsonify
 from app.utils.db import Database
 from app.utils.auth import doctor_required
 from datetime import datetime
+from werkzeug.security import generate_password_hash
 from sqlalchemy import text
+import string
+import random
 
 bp = Blueprint('doctor', __name__)
 # 已实现功能：
@@ -21,22 +24,19 @@ def get_doctor_profile(user_id, doctor_id):
     try:
         # 获取医生ID
         doctor = Database.fetch_one("""
-            SELECT id FROM doctors WHERE user_id = :user_id
+            SELECT user_id FROM doctors WHERE user_id = :user_id
         """, {'user_id': user_id})
         
         if not doctor:
             return jsonify({'error': '医生信息不存在'}), 404
             
-        # 验证访问权限
-        if doctor['id'] != doctor_id:
-            return jsonify({'error': '无权访问此信息'}), 403
             
         # 获取医生信息
         doctor_info = Database.fetch_one("""
             SELECT d.*, dp.name as department_name 
             FROM doctors d
             LEFT JOIN departments dp ON d.department_id = dp.id
-            WHERE d.id = :doctor_id
+            WHERE d.user_id = :doctor_id
         """, {'doctor_id': doctor_id})
         
         if not doctor_info:
@@ -774,40 +774,133 @@ def delete_admission(user_id, admission_id):
         print(f"Error deleting admission: {str(e)}")
         return jsonify({'error': '删除入住记录失败'}), 500
 
-@bp.route('/doctor/patients', methods=['GET'])
+
+
+@bp.route('/doctor/patient', methods=['POST'])
 @doctor_required
-def get_doctor_patients(user_id):
-    """获取医生的患者列表"""
+def add_patient_doctor_relationship(user_id):
+    """
+    增添医生与新患者的关联记录，同时在 patients 表中创建新的患者记录，
+    并在 users 表中生成对应的用户名和密码。
+    """
     try:
+        data = request.get_json()
+        # 定义需要的患者信息字段
+        required_fields = ['name', 'birth_date', 'gender']
+
+        # 检查请求体是否为空
+        if not data:
+            return jsonify({'error': '请求体不能为空'}), 400
+
+        # 检查必填字段是否齐全
+        missing_fields = [field for field in required_fields if not data.get(field)]
+        if missing_fields:
+            return jsonify({'error': f"缺少必填字段: {', '.join(missing_fields)}"}), 400
+
+        name = data['name']
+        birth_date = data['birth_date']
+        gender = data['gender']
+        contact = data.get('contact', '')
+        address = data.get('address', '')
+        medical_history = data.get('medical_history', '')
+        notes = data.get('notes', '')
+
+        # 生成随机用户名和密码
+        username = generate_random_username()
+        password = generate_random_password()
+        password_hash = generate_password_hash(password)
+
         # 获取医生ID
         doctor = Database.fetch_one("""
             SELECT id FROM doctors WHERE user_id = :user_id
         """, {'user_id': user_id})
-        
+
         if not doctor:
             return jsonify({'error': '医生信息不存在'}), 404
-            
-        # 获取患者列表
-        patients = Database.fetch_all("""
-            SELECT 
-                p.id,
-                p.name,
-                p.gender,
-                p.contact,
-                pd.start_date as relationship_start,
-                pd.notes
-            FROM patients p
-            JOIN patient_doctor pd ON p.id = pd.patient_id
-            WHERE pd.doctor_id = :doctor_id
-            ORDER BY pd.start_date DESC
-        """, {'doctor_id': doctor['id']})
-        
-        # 确保返回空列表而不是 None
-        return jsonify(patients or []), 200
-        
+
+        doctor_id = doctor['id']
+
+        # 开始数据库操作
+        try:
+            # 插入新用户到 users 表
+            insert_user_query = """
+                INSERT INTO users (username, password_hash, role)
+                VALUES (:username, :password_hash, :role)
+                RETURNING id
+            """
+            user_params = {
+                'username': username,
+                'password_hash': password_hash,
+                'role': 'patient'
+            }
+            user_id_new = Database.execute(insert_user_query, user_params)
+
+            if not user_id_new:
+                return jsonify({'error': '创建用户失败'}), 500
+
+            # 插入新患者到 patients 表
+            insert_patient_query = """
+                INSERT INTO patients (user_id, name, birth_date, gender, contact, address, medical_history)
+                VALUES (:user_id, :name, :birth_date, :gender, :contact, :address, :medical_history)
+                RETURNING id
+            """
+            patient_params = {
+                'user_id': user_id_new,
+                'name': name,
+                'birth_date': birth_date,
+                'gender': gender,
+                'contact': contact,
+                'address': address,
+                'medical_history': medical_history
+            }
+            patient_id_new = Database.execute(insert_patient_query, patient_params)
+
+            if not patient_id_new:
+                return jsonify({'error': '创建患者失败'}), 500
+
+            # 可选：在 patient_doctor 表中关联医生与新患者
+            insert_relationship_query = """
+                INSERT INTO patient_doctor (doctor_id, patient_id, start_date, notes)
+                VALUES (:doctor_id, :patient_id, :start_date, :notes)
+                RETURNING id
+            """
+            relationship_params = {
+                'doctor_id': doctor_id,
+                'patient_id': patient_id_new,
+                'start_date': datetime.utcnow().date(),
+                'notes': notes
+            }
+            relationship_id = Database.execute(insert_relationship_query, relationship_params)
+
+            if not relationship_id:
+                return jsonify({'error': '关联医生与患者失败'}), 500
+
+            # 返回新患者的相关信息，包括用户名和初始密码
+            return jsonify({
+                'message': '新患者已成功添加并关联到医生',
+                'patient_id': patient_id_new,
+                'username': username,
+                'password': password,  # 注意：在生产环境中，建议通过安全渠道传输密码
+                'relationship_id': relationship_id
+            }), 201
+
+        except Exception as e:
+            print(f"Error adding new patient and relationship: {str(e)}")
+            return jsonify({'error': '服务器内部错误'}), 500
+
     except Exception as e:
-        print(f"Error getting doctor's patients: {str(e)}")
-        return jsonify({'error': '获取患者列表失败'}), 500
+        print(f"Error processing request: {str(e)}")
+        return jsonify({'error': '服务器内部错误'}), 500
+
+def generate_random_username(length=8):
+    """生成一个指定长度的随机用户名，包含字母和数字"""
+    characters = string.ascii_lowercase + string.digits
+    return ''.join(random.choice(characters) for _ in range(length))
+
+def generate_random_password(length=12):
+    """生成一个指定长度的随机密码，包含字母、数字和符号"""
+    characters = string.ascii_letters + string.digits + string.punctuation
+    return ''.join(random.choice(characters) for _ in range(length))
 
 @bp.route('/doctor/patient/<int:patient_id>/doctors', methods=['GET'])
 @doctor_required
@@ -837,13 +930,13 @@ def get_patient_doctors(user_id, patient_id):
             ORDER BY pd.start_date DESC
         """, {'patient_id': patient_id})
         
-        # ��保返回空列表而不是 None
         return jsonify(doctors or []), 200
         
     except Exception as e:
         print(f"Error getting patient's doctors: {str(e)}")
         return jsonify({'error': '获取医生列表失败'}), 500
-
+    
+    
 @bp.route('/doctor/admission/<int:admission_id>', methods=['PUT'])
 @doctor_required
 def update_admission(user_id, admission_id):
@@ -953,3 +1046,71 @@ def get_patient_admissions(user_id, patient_id):
     except Exception as e:
         print(f"Error getting patient admissions: {str(e)}")
         return jsonify({'error': '获取入院记录失败'}), 500 
+    
+    
+@bp.route('/doctor/patients', methods=['GET'])
+@doctor_required
+def get_all_patients(user_id):
+    """获取所有患者的列表，包括完整的患者信息"""
+    try:
+        # 获取所有患者列表，包含完整信息
+        patients = Database.fetch_all("""
+            SELECT 
+                id,
+                name,
+                birth_date,
+                gender,
+                contact,
+                address,
+                medical_history
+            FROM patients
+            ORDER BY name ASC
+        """)
+        
+        # 确保返回空列表而不是 None
+        return jsonify(patients or []), 200
+        
+    except Exception as e:
+        print(f"Error getting all patients: {str(e)}")
+        return jsonify({'error': '获取患者列表失败'}), 500
+
+
+
+@bp.route('/doctor/patients/<int:patient_id>', methods=['GET'])
+@doctor_required
+def get_patient_info(user_id, patient_id):
+    """获取当前医生关联的特定患者的详细信息"""
+    try:
+        # 获取医生ID
+        doctor = Database.fetch_one("""
+            SELECT id FROM doctors WHERE user_id = :user_id
+        """, {'user_id': user_id})
+        
+        if not doctor:
+            return jsonify({'error': '医生信息不存在'}), 404
+        
+        # 获取患者信息，确保患者属于该医生
+        patient = Database.fetch_one("""
+            SELECT 
+                p.id,
+                p.name,
+                p.birth_date,
+                p.gender,
+                p.contact,
+                p.address,
+                p.medical_history,
+                pd.start_date as relationship_start,
+                pd.notes
+            FROM patients p
+            JOIN patient_doctor pd ON p.id = pd.patient_id
+            WHERE pd.doctor_id = :doctor_id AND p.id = :patient_id AND pd.is_deleted = FALSE
+        """, {'doctor_id': doctor['id'], 'patient_id': patient_id})
+        
+        if not patient:
+            return jsonify({'error': '未找到该患者或您无权访问该患者信息'}), 404
+        
+        return jsonify(patient), 200
+    
+    except Exception as e:
+        print(f"Error getting patient info: {str(e)}")
+        return jsonify({'error': '获取患者信息失败'}), 500

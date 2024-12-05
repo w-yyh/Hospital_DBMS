@@ -1,6 +1,24 @@
 import streamlit as st
 from pyvis.network import Network
 import pyvis
+import requests
+
+def make_request(method, endpoint, **kwargs):
+    """发送带认证的请求"""
+    headers = kwargs.pop('headers', {})
+    headers['Authorization'] = f'Bearer {st.session_state.token}'
+    
+    try:
+        response = requests.request(
+            method, 
+            f'http://localhost:5000{endpoint}',  # 后端服务器地址
+            headers=headers,
+            **kwargs
+        )
+        return response
+    except Exception as e:
+        st.error(f"请求失败: {str(e)}")
+        return None
 
 from pages.diagram import *
 
@@ -69,17 +87,91 @@ st.components.v1.html(open("relationship_graph.html", "r").read(), height=600)
 st.subheader("数据库操作")
 
 # 增删查改
-col0, col1, col2 = st.columns([0.5, 1, 1])
-with col0:
-    mode = st.selectbox("Choose your role", ["增加" , "查询", "修改", "删除"])
-with col1:
-    name = st.text_input("属性名称", key="attribute_name")
-with col2:
-    change = st.text_input("修改内容", key="change_name")
+st.subheader("管理功能")
 
-with st.container():
-    if st.button("确认",use_container_width=True):
-        # todo：逻辑实现
+# 创建选项卡
+tabs = st.tabs(["医生管理", "科室管理", "护士分配"])
 
-        st.success(f"{mode}成功")
+# 医生管理选项卡
+with tabs[0]:
+    st.header("医生管理")
+    
+    # 显示所有医生
+    response = make_request('GET', '/admin/doctors')
+    if response and response.status_code == 200:
+        doctors = response.json()
+        if doctors:
+            st.write("医生列表：")
+            st.dataframe(doctors)
+    
+    # 添加医生
+    with st.form("add_doctor"):
+        st.subheader("添加新医生")
+        doctor_data = {
+            'doctor_id': st.text_input("医生ID"),
+            'name': st.text_input("姓名"),
+            'birth_date': st.date_input("出生日期").strftime("%Y-%m-%d"),
+            'contact': st.text_input("联系电话"),
+            'specialization': st.text_input("专业"),
+            'department_id': st.text_input("科室ID"),
+            'email': st.text_input("邮箱")
+        }
+        
+        if st.form_submit_button("添加"):
+            response = make_request('POST', '/admin/doctor', json=doctor_data)
+            if response and response.status_code == 200:
+                st.success("医生添加成功！")
+            else:
+                st.error("添加失败")
+
+# 科室管理选项卡
+with tabs[1]:
+    st.header("科室管理")
+    
+    # 分配科室
+    with st.form("assign_department"):
+        st.subheader("分配科室")
+        doctor_id = st.text_input("医生ID")
+        department_id = st.text_input("科室ID")
+        
+        if st.form_submit_button("分配"):
+            response = make_request(
+                'PUT', 
+                f'/admin/department/{doctor_id}/assign',
+                json={'department_id': department_id}
+            )
+            if response and response.status_code == 200:
+                st.success("科室分配成功！")
+            else:
+                st.error(response.json().get('error', '分配失败'))
+
+# 护士分配统计选项卡
+with tabs[2]:
+    st.header("护士分配统计")
+    
+    if st.button("获取统计信息"):
+        response = make_request('GET', '/admin/nurse-assignment/stats')
+        if response and response.status_code == 200:
+            stats = response.json()
+            
+            # 显示总体统计
+            st.subheader("总体统计")
+            overall = stats['overall_stats']
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("总护士数", overall['total_nurses'])
+            with col2:
+                st.metric("总病房数", overall['total_wards'])
+            with col3:
+                st.metric("总分配数", overall['total_assignments'])
+            with col4:
+                st.metric("活跃分配比例", f"{overall['active_assignment_percentage']}%")
+            
+            # 显示病房详细统计
+            st.subheader("病房护士分配详情")
+            ward_stats = stats['ward_stats']
+            if ward_stats:
+                st.dataframe(ward_stats)
+            else:
+                st.info("暂无病房分配信息")
 

@@ -15,13 +15,29 @@ def get_all_doctors(admin_id):
 @admin_required
 def add_doctor(admin_id):
     data = request.get_json()
-    Database.execute_query("""
-        INSERT INTO doctors (doctor_id, name, dob, contact_number, specialization, 
-                           department_id, email) 
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
-    """, (data['doctor_id'], data['name'], data['dob'], data['contact_number'],
-          data['specialization'], data['department_id'], data['email']))
-    return jsonify({'message': 'Doctor added successfully'})
+    try:
+        # 使用字典而不是元组传递参数
+        Database._execute_query("""
+            INSERT INTO doctors (id, name, birth_date, contact, specialization, 
+                               department_id, email) 
+            VALUES (
+                :doctor_id, :name, :birth_date, :contact,
+                :specialization, :department_id, :email
+            )
+        """, {
+            'doctor_id': data['doctor_id'],
+            'name': data['name'],
+            'birth_date': data['dob'],
+            'contact': data['contact_number'],
+            'specialization': data['specialization'],
+            'department_id': data['department_id'],
+            'email': data['email']
+        })
+        return jsonify({'message': 'Doctor added successfully'})
+    except Exception as e:
+        # 打印详细的错误信息
+        print(f"Error adding doctor: {str(e)}")
+        return jsonify({'error': f'Failed to add doctor: {str(e)}'}), 500
 
 
 # 科室管理相关路由
@@ -35,19 +51,19 @@ def assign_department(user_id, doctor_id):
     try:
         # 验证科室是否存在
         department = Database.fetch_one("""
-            SELECT department_id, department_name 
+            SELECT id, name 
             FROM departments 
-            WHERE department_id = %s
+            WHERE id = %s
         """, (data['department_id'],))
         
         if not department:
             return jsonify({'error': '指定的科室不存在'}), 400
             
         # 更新医生的科室
-        Database.execute("""
+        Database.execute_query("""
             UPDATE doctors 
             SET department_id = %s, updated_at = NOW()
-            WHERE doctor_id = %s AND is_deleted = FALSE
+            WHERE id = %s AND is_deleted = FALSE
         """, (data['department_id'], doctor_id))
         
         return jsonify({
@@ -63,9 +79,9 @@ def get_department_doctors(user_id, department_id):
     try:
         # 验证科室是否存在
         department = Database.fetch_one("""
-            SELECT department_id, department_name 
+            SELECT id, name 
             FROM departments 
-            WHERE department_id = %s
+            WHERE id = %s
         """, (department_id,))
         
         if not department:
@@ -463,7 +479,7 @@ def update_ward(user_id, ward_id):
 @admin_required
 def delete_ward(user_id, ward_id):
     try:
-        # 检查病房是否有当前住院患者
+        # 检查病房是否有前住院患者
         current_patients = Database.fetch_one("""
             SELECT COUNT(*) as count
             FROM admissions
@@ -715,4 +731,60 @@ def get_nurse_assignment_stats(user_id):
             'ward_stats': ward_stats
         })
     except Exception as e:
-        return jsonify({'error': f'获取护士分配统计信息失败: {str(e)}'}), 500 
+        return jsonify({'error': f'获取护士分配统计信息失败: {str(e)}'}), 500
+
+@bp.route('/admin/attribute', methods=['POST', 'GET', 'PUT', 'DELETE'])
+@admin_required
+def manage_attribute(user_id):
+    data = request.get_json()
+    
+    try:
+        if request.method == 'POST':  # 增加
+            # 验证必填字段
+            if not all(k in data for k in ['table_name', 'attribute_name', 'value']):
+                return jsonify({'error': '缺少必填字段'}), 400
+                
+            query = f"""
+                ALTER TABLE {data['table_name']}
+                ADD COLUMN {data['attribute_name']} VARCHAR(255)
+                DEFAULT :value
+            """
+            Database.execute(query, {'value': data['value']})
+            return jsonify({'message': '属性添加成功'}), 201
+            
+        elif request.method == 'GET':  # 查询
+            if 'table_name' not in data:
+                return jsonify({'error': '缺少表名'}), 400
+                
+            query = f"""
+                SELECT column_name, data_type 
+                FROM information_schema.columns
+                WHERE table_name = :table_name
+            """
+            result = Database.fetch_all(query, {'table_name': data['table_name']})
+            return jsonify(result)
+            
+        elif request.method == 'PUT':  # 修改
+            if not all(k in data for k in ['table_name', 'old_name', 'new_name']):
+                return jsonify({'error': '缺少必填字段'}), 400
+                
+            query = f"""
+                ALTER TABLE {data['table_name']}
+                RENAME COLUMN {data['old_name']} TO {data['new_name']}
+            """
+            Database.execute(query)
+            return jsonify({'message': '属性修改成功'})
+            
+        else:  # 删除
+            if not all(k in data for k in ['table_name', 'attribute_name']):
+                return jsonify({'error': '缺少必填字段'}), 400
+                
+            query = f"""
+                ALTER TABLE {data['table_name']}
+                DROP COLUMN {data['attribute_name']}
+            """
+            Database.execute(query)
+            return jsonify({'message': '属性删除成功'})
+            
+    except Exception as e:
+        return jsonify({'error': f'操作失败: {str(e)}'}), 500 

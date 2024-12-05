@@ -76,7 +76,7 @@ def register():
             
             # 创建角色相关记录
             role_id = None
-            if data['role'] == 'doctor':
+            if data['role'] == 'Doctor':
                 role_id = Database.execute("""
                     INSERT INTO doctors (
                         user_id, name, birth_date, contact, 
@@ -90,7 +90,7 @@ def register():
                     **role_info,
                     'email': data['email']
                 })
-            elif data['role'] == 'nurse':
+            elif data['role'] == 'Nurse':
                 role_id = Database.execute("""
                     INSERT INTO nurses (
                         user_id, name, birth_date, contact,
@@ -104,7 +104,7 @@ def register():
                     **role_info,
                     'email': data['email']
                 })
-            elif data['role'] == 'patient':
+            elif data['role'] == 'Patient':
                 role_id = Database.execute("""
                     INSERT INTO patients (
                         user_id, name, birth_date, gender,
@@ -135,6 +135,7 @@ def register():
         import traceback
         traceback.print_exc()
         return jsonify({'error': f'用户注册失败: {str(e)}'}), 500
+
 
 # 用户登录
 @bp.route('/auth/login', methods=['POST'])

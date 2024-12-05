@@ -13,20 +13,34 @@ bp = Blueprint('nurse', __name__)
 
 @bp.route('/nurse/profile/<int:nurse_id>', methods=['GET'])
 @nurse_required
-def get_nurse_profile(user_id, nurse_id):
-    if user_id != nurse_id:
-        return jsonify({'error': '无权访问此信息'}), 403
+def get_nurse_profile(user_id, nurse_id):# 这里不知道为啥，user_id 和 nurse_id 指的都是 user_id 之后就把id替换成user_id了
+    try:
+        # 获取护士ID
+        nurse = Database.fetch_one("""
+            SELECT user_id FROM nurses WHERE user_id = :user_id
+        """, {'user_id': user_id})
         
-    nurse = Database.fetch_one("""
-        SELECT n.*, d.name as department_name 
-        FROM nurses n
-        LEFT JOIN departments d ON n.department_id = d.department_id
-        WHERE n.nurse_id = %s AND n.is_deleted = FALSE
-    """, (nurse_id,))
-    
-    if not nurse:
-        return jsonify({'error': '护士不存在'}), 404
-    return jsonify(nurse)
+        if not nurse:
+            return jsonify({'error': '护士信息不存在'}), 404
+            
+            
+        # 获取护士详细信息
+        nurse_info = Database.fetch_one("""
+            SELECT n.*, d.name as department_name 
+            FROM nurses n
+            LEFT JOIN departments d ON n.department_id = d.id
+            WHERE n.user_id = :user_id AND n.is_deleted = FALSE
+        """, {'user_id': user_id})
+        
+        if not nurse_info:
+            return jsonify({'error': '护士不存在'}), 404
+            
+        return jsonify(nurse_info), 200
+        
+    except Exception as e:
+        print(f"Error getting nurse profile: {str(e)}")
+        return jsonify({'error': '获取护士信息失败'}), 500
+
 
 @bp.route('/nurse', methods=['POST'])
 @nurse_required

@@ -48,7 +48,7 @@ def login():
             
             login_username = st.text_input("账号名称", key="login_username")
             login_password = st.text_input("账号密码", type="password", key="login_password")
-            role = st.selectbox("选择角色", ROLES, key="login_role")
+
             
             login_submitted = st.form_submit_button("登录", use_container_width=True)
 
@@ -97,7 +97,6 @@ def login():
             email = st.text_input("邮箱", key="register_email")
             role = st.selectbox("选择角色", ROLES, key="register_role")
 
-            # 根据角色显示额外的信息字段
             role_info = {}
             if role == "Doctor":
                 st.markdown("### 医生信息")
@@ -133,6 +132,8 @@ def login():
             if register_submitted:
                 if not all([register_username, register_password, email, role]):
                     st.error("请填写所有必填字段")
+                elif role in ["Doctor", "Nurse", "Patient"] and not all(role_info.values()):
+                    st.error(f"请填写{role}的所有附加信息")
                 else:
                     try:
                         register_data = {
@@ -154,12 +155,22 @@ def login():
                     except Exception as e:
                         st.error(f"连接服务器失败: {str(e)}")
 
+
 def logout():
-    """清除所有会话状态"""
+    """清除所有会话状态并返回登录页面"""
+    # 清除所有会话状态
     for key in ['token', 'user_id', 'role', 'login_success', 'token_exp']:
         if key in st.session_state:
             del st.session_state[key]
+    
+    # 重新初始化会话状态
+    init_session_state()
+    
+    # 强制重新加载页面
     st.rerun()
+    
+    # 显示登录页面
+    login()
 
 def make_authenticated_request(method, url, **kwargs):
     """发送带有认证令牌的请求"""
