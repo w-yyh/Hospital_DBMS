@@ -17,7 +17,7 @@ def create_app(config_name='development'):
         }
     })
     
-    # 添加 SECRET_KEY 配置
+    # 设置安全密钥
     app.config['SECRET_KEY'] = 'your-secret-key-here'
     
     # 数据库配置

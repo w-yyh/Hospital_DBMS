@@ -30,29 +30,29 @@ def register():
             return jsonify({'error': '用户名已存在'}), 400
             
         # 验证角色是否有效
-        valid_roles = ['admin', 'doctor', 'nurse', 'patient']
+        valid_roles = ['Admin', 'Doctor', 'Nurse', 'Patient']
         if data['role'] not in valid_roles:
             return jsonify({'error': '无效的用户角色'}), 400
             
         # 验证角色相关信息
         role_info = None
-        if data['role'] == 'doctor':
+        if data['role'] == 'Doctor':
             if 'doctor_info' not in data:
                 return jsonify({'error': '缺少医生相关信息'}), 400
             role_info = data['doctor_info']
             required_info = ['name', 'birth_date', 'contact', 'department_id', 'specialization']
-        elif data['role'] == 'nurse':
+        elif data['role'] == 'Nurse':
             if 'nurse_info' not in data:
                 return jsonify({'error': '缺少护士相关信息'}), 400
             role_info = data['nurse_info']
             required_info = ['name', 'birth_date', 'contact', 'department_id', 'qualification']
-        elif data['role'] == 'patient':
+        elif data['role'] == 'Patient':
             if 'patient_info' not in data:
                 return jsonify({'error': '缺少患者相关信息'}), 400
             role_info = data['patient_info']
             required_info = ['name', 'birth_date', 'gender', 'contact', 'address']
             
-        if role_info and data['role'] != 'admin':
+        if role_info and data['role'] != 'Admin':
             for field in required_info:
                 if field not in role_info:
                     return jsonify({'error': f'缺少{data["role"]}信息: {field}'}), 400
@@ -146,49 +146,33 @@ def login():
     try:
         # 获取用户信息
         user = Database.fetch_one("""
-            SELECT 
-                id as user_id,
-                username,
-                password_hash,
-                role
+            SELECT id, username, password_hash, role 
             FROM users 
-            WHERE username = :username
-            AND is_deleted = FALSE
+            WHERE username = :username AND is_deleted = FALSE
         """, {'username': data['username']})
         
-        if not user:
-            return jsonify({'error': '用户不存在'}), 404
+        if not user or not check_password_hash(user['password_hash'], data['password']):
+            return jsonify({'error': '用户名或密码错误'}), 401
             
-        try:
-            # 验证密码
-            if not check_password_hash(user['password_hash'], data['password']):
-                return jsonify({'error': '密码错误'}), 401
-        except ValueError as e:
-            print(f"Password hash error: {str(e)}")
-            print(f"Stored hash: {user['password_hash']}")
-            return jsonify({'error': '密码验证失败'}), 500
-            
-        # 生成JWT令牌
-        token = generate_token(user['user_id'], user['role'])
+        # 生成 JWT 令牌
+        token = generate_token(user['id'], user['role'])
         
         # 更新最后登录时间
         Database.execute("""
             UPDATE users 
             SET last_login = CURRENT_TIMESTAMP
             WHERE id = :user_id
-        """, {'user_id': user['user_id']})
+        """, {'user_id': user['id']})
         
         return jsonify({
             'token': token,
-            'user_id': user['user_id'],
+            'user_id': user['id'],
             'role': user['role']
-        }), 200
+        })
         
     except Exception as e:
         print(f"Login error: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'error': f'登录失败: {str(e)}'}), 500
+        return jsonify({'error': '登录失败'}), 500
 
 # 密码重置请求
 @bp.route('/auth/password-reset-request', methods=['POST'])
@@ -247,7 +231,7 @@ def reset_password():
             algorithms=['HS256']
         )
         
-        # 检查令牌��否有效
+        # 检查令牌否有效
         user = Database.fetch_one("""
             SELECT user_id 
             FROM users 
@@ -320,7 +304,7 @@ def change_password(user_id):
         
     except Exception as e:
         print(f"Change password error: {str(e)}")
-        return jsonify({'error': f'修改���码失败: {str(e)}'}), 500
+        return jsonify({'error': f'修改密码失败: {str(e)}'}), 500
 
 # 权限管理接口
 @bp.route('/auth/roles', methods=['GET'])

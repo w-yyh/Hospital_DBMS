@@ -44,18 +44,48 @@ class Database:
     @classmethod
     def execute(cls, query, params=None):
         """执行 SQL 查询并返回最后一个插入行的 ID"""
-        return cls._execute_query(query, params, fetch_one=False)
+        try:
+            if isinstance(query, str):
+                query = text(query)
+            result = db.session.execute(query, params)
+            db.session.commit()
+            if result.returns_rows:
+                row = result.fetchone()
+                # 如果是 RETURNING 子句，返回第一个值
+                return row[0] if row else None
+            return None
+        except Exception as e:
+            db.session.rollback()
+            raise
 
     @classmethod
     def fetch_one(cls, query, params=None):
         """执行查询并返回单个结果"""
-        result = cls._execute_query(query, params, fetch_one=True)
-        return result
+        try:
+            if isinstance(query, str):
+                query = text(query)
+            result = db.session.execute(query, params)
+            row = result.fetchone()
+            if not row:
+                return None
+            # 将 Row 对象转换为字典
+            return dict(row._mapping) if row else None
+        except Exception as e:
+            db.session.rollback()
+            raise
 
     @classmethod
     def fetch_all(cls, query, params=None):
         """执行查询并返回所有结果"""
-        return cls._execute_query(query, params, fetch_one=False)
+        try:
+            if isinstance(query, str):
+                query = text(query)
+            result = db.session.execute(query, params)
+            # 将每个 Row 对象转换为字典
+            return [dict(row._mapping) for row in result]
+        except Exception as e:
+            db.session.rollback()
+            raise
 
     @classmethod
     def _execute_query(cls, query, params=None, fetch_one=False):
